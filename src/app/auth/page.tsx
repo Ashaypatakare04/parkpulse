@@ -97,7 +97,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen w-full flex bg-background">
       <div className="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden bg-black">
-        <div className="absolute inset-0 bg-[url('/auth.png')] bg-cover bg-center opacity-80 mix-blend-luminosity" />
+        <div className="absolute inset-0 bg-[url('/auth.jpg')] bg-cover bg-center opacity-80 mix-blend-luminosity" />
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background z-0" />
         <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent mix-blend-overlay z-0" />
         <div className="relative z-10 w-full max-w-md p-10 text-white">

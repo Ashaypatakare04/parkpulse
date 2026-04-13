@@ -1,21 +1,23 @@
 "use client"
 import React, { useEffect, useState } from "react"
 import { useAppStore } from "@/lib/store"
-import { listenToUserActiveBooking, processExit } from "@/lib/firebase/api"
+import { listenToUserActiveBooking } from "@/lib/firebase/api"
 import { Booking } from "@/types"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Modal } from "@/components/ui/Modal"
-import { CarFront, Clock, Receipt, AlertTriangle } from "lucide-react"
+import { CarFront, Receipt, CheckCircle2 } from "lucide-react"
+import { LiveMeter } from "../../components/LiveMeter"
+import { CheckoutFlow } from "../../components/CheckoutFlow"
+import { QRGenerator } from "../../components/QRGenerator"
 
 export default function MyBooking() {
   const { user } = useAppStore()
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   
-  const [isConfirmingExit, setIsConfirmingExit] = useState(false)
-  const [isExiting, setIsExiting] = useState(false)
-  const [receipt, setReceipt] = useState<{ fee: number; transactionId: string } | null>(null)
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+  const [exitResult, setExitResult] = useState<any>(null)
 
   useEffect(() => {
     if (!user) return
@@ -26,36 +28,6 @@ export default function MyBooking() {
     return () => unsubscribe()
   }, [user])
 
-  // Real-time live fee counter (Optional visual feature)
-  const [liveHours, setLiveHours] = useState(1)
-  
-  useEffect(() => {
-    if (!activeBooking?.entryTime) return
-    const updateTime = () => {
-      const now = new Date()
-      const diffHrs = Math.ceil((now.getTime() - activeBooking.entryTime!.getTime()) / (1000 * 60 * 60))
-      setLiveHours(diffHrs > 0 ? diffHrs : 1)
-    }
-    updateTime()
-    const interval = setInterval(updateTime, 60000)
-    return () => clearInterval(interval)
-  }, [activeBooking])
-
-  const handleExit = async () => {
-    if (!activeBooking) return
-    setIsExiting(true)
-    try {
-      const result = await processExit(activeBooking)
-      setReceipt(result)
-      setIsConfirmingExit(false)
-    } catch (err: any) {
-      console.error(err)
-      alert(err.message || "Failed to process exit.")
-    } finally {
-      setIsExiting(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -64,114 +36,176 @@ export default function MyBooking() {
     )
   }
 
-  // If receipt exists, show Exit Summary Page
-  if (receipt) {
+  // If exitResult exists, show SUCCESS state with QR Pass
+  if (exitResult) {
     return (
-      <div className="animate-in fade-in duration-500 max-w-lg mx-auto mt-10">
-        <Card className="glass border-green-500/50 shadow-xl shadow-green-500/10">
-          <CardHeader className="text-center pb-2">
-            <div className="bg-green-500/10 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Receipt className="h-8 w-8 text-green-500" />
-            </div>
-            <CardTitle className="text-2xl">Exit Successful</CardTitle>
-            <CardDescription>Your parking session has ended.</CardDescription>
+      <div className="animate-in fade-in duration-700 max-w-lg mx-auto mt-6 space-y-6">
+        <div className="text-center space-y-2 mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 text-green-500 mb-4">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <h1 className="text-4xl font-black tracking-tight">Session Ended</h1>
+          <p className="text-muted-foreground text-lg">Thank you for using ParkPulse</p>
+        </div>
+
+        <QRGenerator 
+          bookingId={exitResult.transactionId} 
+          validUntil={exitResult.exitPassValidUntil} 
+        />
+
+        <Card className="glass overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <Receipt className="w-4 h-4" />
+              Payment Details
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between p-3 bg-muted rounded-lg">
-              <span className="text-muted-foreground">Transaction ID</span>
-              <span className="font-mono text-sm">{receipt.transactionId}</span>
+          <div className="px-6 pb-6 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium">₹{(exitResult.fee - exitResult.taxAmount + exitResult.discountAmount).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center p-3">
-              <span className="text-xl font-medium">Total Paid</span>
-              <span className="text-3xl font-bold">₹{receipt.fee.toFixed(2)}</span>
+            {exitResult.discountAmount > 0 && (
+              <div className="flex justify-between text-sm text-green-500">
+                <span>Discount Applied</span>
+                <span className="font-medium">-₹{exitResult.discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">GST (18%)</span>
+              <span className="font-medium">₹{exitResult.taxAmount.toFixed(2)}</span>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onClick={() => setReceipt(null)}>Return to Dashboard</Button>
-          </CardFooter>
+            <div className="pt-3 border-t border-white/10 flex justify-between items-end">
+              <span className="text-lg font-bold">Total Paid</span>
+              <span className="text-2xl font-black text-primary">₹{exitResult.fee.toFixed(2)}</span>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-xl text-[10px] text-muted-foreground font-mono truncate">
+              TXID: {exitResult.transactionId}
+            </div>
+          </div>
         </Card>
+
+        <Button className="w-full h-14 rounded-2xl text-lg font-bold" onClick={() => setExitResult(null)}>
+          Return to Dashboard
+        </Button>
       </div>
     )
   }
 
   if (!activeBooking) {
     return (
-      <div className="flex flex-col items-center justify-center h-[50vh] text-center max-w-md mx-auto">
-        <CarFront className="h-16 w-16 text-muted mb-4 opacity-50" />
-        <h2 className="text-2xl font-bold tracking-tight">No Active Session</h2>
-        <p className="text-muted-foreground mt-2 mb-6">
-          You don't have any vehicle currently parked in the facility. 
-          Head over to the slots map to find an available spot.
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center max-w-md mx-auto">
+        <div className="w-24 h-24 bg-muted/20 rounded-full flex items-center justify-center mb-6">
+          <CarFront className="h-12 w-12 text-muted-foreground opacity-30" />
+        </div>
+        <h2 className="text-3xl font-black tracking-tighter italic">NO ACTIVE SESSION</h2>
+        <p className="text-muted-foreground mt-3 mb-8 text-lg">
+          Your vehicle is not in our system. Book a slot to start your premium parking journey.
         </p>
+        <Button variant="outline" className="rounded-full px-8" onClick={() => window.location.href = '/dashboard/slots'}>
+          Find Available Slots
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="animate-in fade-in max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold tracking-tight mb-6">Active Session</h1>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-4xl mx-auto space-y-8 pb-12">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Active Session</h1>
+          <p className="text-muted-foreground">Live tracking and session management</p>
+        </div>
+        <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-black tracking-widest uppercase animate-pulse border border-primary/20">
+          Live Tracking Enabled
+        </div>
+      </div>
       
-      <Card className="glass overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-2 h-full bg-primary" />
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-2xl">Slot {activeBooking.slotId}</CardTitle>
-              <CardDescription className="mt-1">
-                Vehicle Plate: <strong className="text-foreground uppercase">{activeBooking.vehicleNumber}</strong>
-              </CardDescription>
-            </div>
-            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium animate-pulse">
-              IN PROGRESS
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 border border-border rounded-xl bg-muted/30">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <Clock className="h-4 w-4" />
-                <span className="text-sm font-medium">Entry Time</span>
-              </div>
-              <p className="text-xl font-semibold">
-                {activeBooking.entryTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {activeBooking.entryTime?.toLocaleDateString()}
-              </p>
-            </div>
-            
-            <div className="p-4 border border-border rounded-xl bg-muted/30">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <Receipt className="h-4 w-4" />
-                <span className="text-sm font-medium">Current Estimate</span>
-              </div>
-              <p className="text-xl font-semibold">₹{(10 + liveHours * 5).toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Based on {liveHours} hr(s)</p>
-            </div>
-          </div>
-        </CardContent>
-        
-        <CardFooter className="bg-muted px-6 py-4 flex justify-between items-center border-t border-border mt-4">
-          <span className="text-sm text-muted-foreground">Ready to leave?</span>
-          <Button variant="danger" onClick={() => setIsConfirmingExit(true)}>End Session & Exit</Button>
-        </CardFooter>
-      </Card>
+      <div className="grid md:grid-cols-5 gap-8">
+        <div className="md:col-span-2">
+          <LiveMeter 
+            entryTime={activeBooking.entryTime} 
+            baseFee={10} 
+            hourlyRate={5} 
+          />
+        </div>
 
-      <Modal isOpen={isConfirmingExit} onClose={() => setIsConfirmingExit(false)} title="Confirm Exit">
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-3 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg border border-red-500/20">
-            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-            <p className="text-sm">
-              Are you sure you want to end your parking session? The calculated fee will be charged and the slot will be released instantly.
-            </p>
-          </div>
-          <div className="flex justify-end gap-3 mt-6">
-            <Button variant="ghost" onClick={() => setIsConfirmingExit(false)} disabled={isExiting}>Cancel</Button>
-            <Button variant="danger" onClick={handleExit} isLoading={isExiting}>Confirm Exit</Button>
+        <div className="md:col-span-3 space-y-6">
+          <Card className="glass-premium overflow-hidden relative border-white/10 shadow-3xl">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-1">Vehicle Details</div>
+                  <CardTitle className="text-5xl font-black tracking-tighter uppercase tabular-nums">
+                    {activeBooking.vehicleNumber}
+                  </CardTitle>
+                  <CardDescription className="text-lg mt-2 font-medium">
+                    Secured at <span className="text-foreground font-bold">Slot {activeBooking.slotId}</span>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <div className="px-6 pb-6 pt-4 border-t border-white/5 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Entry Timestamp</span>
+                  <p className="text-lg font-bold">
+                    {activeBooking.entryTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Date</span>
+                  <p className="text-lg font-bold">
+                    {activeBooking.entryTime?.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between group hover:border-primary/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Status: Occupied</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">Monitored by Security 24/7</p>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                variant="danger" 
+                className="w-full h-16 rounded-2xl text-xl font-black uppercase tracking-tighter italic shadow-xl shadow-red-500/10 hover:shadow-red-500/20 active:scale-[0.98] transition-all"
+                onClick={() => setIsCheckoutOpen(true)}
+              >
+                Initiate Exit Sequence
+              </Button>
+            </div>
+          </Card>
+
+          <div className="p-6 rounded-3xl bg-muted/20 border border-white/5 flex items-center gap-4">
+            <div className="p-3 bg-white/5 rounded-2xl">
+              <Receipt className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Digital Receipt Guaranteed</p>
+              <p className="text-xs text-muted-foreground">Automated billing with 18% GST compliance.</p>
+            </div>
           </div>
         </div>
+      </div>
+
+      <Modal isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} title="ParkPulse Checkout">
+        <CheckoutFlow 
+          booking={activeBooking} 
+          onSuccess={(result) => {
+            setExitResult(result)
+            setIsCheckoutOpen(false)
+          }} 
+          onCancel={() => setIsCheckoutOpen(false)}
+        />
       </Modal>
     </div>
   )

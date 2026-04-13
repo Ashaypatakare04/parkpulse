@@ -7,6 +7,7 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  walletBalance?: number; // Added for ParkPulse Wallet
   createdAt: any;
 }
 
@@ -26,12 +27,19 @@ export interface Booking {
   entryTime: any;
   exitTime: any | null;
   status: BookingStatus;
-  fee?: number; // Calculated on exit (10 + 5*hr)
+  fee?: number; // Calculated on exit
+  couponCode?: string; // Applied coupon
+  exitPassValidUntil?: any; // Valid for 15 mins after payment
 }
 
 export interface Transaction {
   id: string;
   bookingId: string;
+  userId: string;
   amount: number;
+  taxAmount: number;
+  discountAmount: number;
+  paymentMethod: "card" | "upi" | "wallet";
+  status: "success" | "pending" | "failed";
   timestamp: any;
 }

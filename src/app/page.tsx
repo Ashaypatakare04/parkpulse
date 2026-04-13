@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button"
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null)
   const carsRef = useRef<HTMLDivElement>(null)
-  
+
   useEffect(() => {
     // Basic GSAP storytelling timeline
     const ctx = gsap.context(() => {
@@ -18,7 +18,7 @@ export default function LandingPage() {
         { opacity: 0, y: 50 },
         { opacity: 1, y: 0, duration: 1, stagger: 0.2, ease: "power3.out" }
       )
-      
+
       gsap.to(".flying-car", {
         x: "100%",
         opacity: 0,
@@ -27,20 +27,20 @@ export default function LandingPage() {
         ease: "linear"
       })
     }, heroRef)
-    
+
     return () => ctx.revert()
   }, [])
 
   return (
-    <div className="relative min-h-screen bg-[#000000] text-white selection:bg-white/30 overflow-hidden">
+    <div ref={heroRef} className="relative min-h-screen bg-[#000000] text-white selection:bg-white/30 overflow-hidden">
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[url('/hero.png')] bg-cover bg-center opacity-70 mix-blend-luminosity portrait:bg-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-[#0a0a0a] z-0" />
+        <div className="absolute inset-0 bg-[url('/hero.jpg')] bg-cover bg-center opacity-85 mix-blend-luminosity brightness-105 portrait:bg-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-[#0a0a0a] z-0" />
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/30 rounded-full blur-[150px] mix-blend-screen opacity-50" />
         <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-blue-900/40 rounded-full blur-[150px] mix-blend-screen opacity-30" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/80 to-black pointer-events-none" />
-        
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/70 to-black pointer-events-none" />
+
         {/* Animated Flying Car */}
         <div className="absolute top-1/4 -left-32 z-[1] flying-car pointer-events-none">
           <div className="relative">
@@ -68,14 +68,14 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      <main ref={heroRef} className="relative z-10 flex flex-col items-center justify-center min-h-[85vh] text-center px-4">
+      <main className="relative z-10 flex flex-col items-center justify-center min-h-[85vh] text-center px-4">
         <h1 className="hero-text text-6xl md:text-8xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
-          Parking, <br/> reimagined.
+          Parking, <br /> reimagined.
         </h1>
         <p className="hero-text text-xl md:text-2xl text-white/60 max-w-2xl mb-12 font-medium">
           Experience seamless, serverless parking management. Real-time availability, effortless booking, and zero friction.
         </p>
-        
+
         <div className="hero-text flex gap-4">
           <Link href="/auth">
             <Button size="lg" className="bg-white text-black hover:bg-white/90 text-lg w-48 shadow-[0_0_40px_rgba(255,255,255,0.2)]">

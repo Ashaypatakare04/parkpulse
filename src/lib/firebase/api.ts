@@ -82,7 +82,39 @@ export const createBooking = async (userId: string, vehicleNumber: string, slot:
   return bookingId;
 };
 
-export const processExit = async (booking: Booking) => {
+export const updateWalletBalance = async (userId: string, delta: number) => {
+  const userDoc = await getDoc(doc(db, "users", userId));
+  if (!userDoc.exists()) throw new Error("User not found");
+  
+  const currentBalance = userDoc.data().walletBalance || 0;
+  const newBalance = currentBalance + delta;
+  
+  if (newBalance < 0) throw new Error("Insufficient wallet balance");
+  
+  await updateDoc(doc(db, "users", userId), {
+    walletBalance: newBalance
+  });
+  return newBalance;
+};
+
+export const validateCoupon = (code: string) => {
+  const coupons: Record<string, { type: "percent" | "fixed", value: number }> = {
+    "FIRSTTIME50": { type: "percent", value: 50 },
+    "WEEKENDPARK": { type: "fixed", value: 20 },
+  };
+  
+  const normalizedCode = code.toUpperCase();
+  if (coupons[normalizedCode]) {
+    return coupons[normalizedCode];
+  }
+  return null;
+};
+
+export const processExit = async (
+  booking: Booking, 
+  paymentMethod: "card" | "upi" | "wallet" = "card",
+  couponCode?: string
+) => {
   const settingsDoc = await getDoc(doc(db, "settings", "global"));
   const { baseFee = 10, hourlyRate = 5 } = settingsDoc.exists() ? settingsDoc.data() : {};
 
@@ -90,21 +122,48 @@ export const processExit = async (booking: Booking) => {
   const entryTime = booking.entryTime;
   const hours = Math.ceil((exitTime.getTime() - entryTime.getTime()) / (1000 * 60 * 60));
   const calculatedHours = hours > 0 ? hours : 1;
-  const fee = baseFee + (calculatedHours * hourlyRate);
+  const subtotal = baseFee + (calculatedHours * hourlyRate);
+  
+  // Tax & Discount Logic
+  const taxRate = 0.18; // 18% GST (mock)
+  let discountAmount = 0;
+  
+  if (couponCode) {
+    const coupon = validateCoupon(couponCode);
+    if (coupon) {
+      discountAmount = coupon.type === "percent" ? (subtotal * coupon.value / 100) : coupon.value;
+    }
+  }
+
+  const taxAmount = (subtotal - discountAmount) * taxRate;
+  const finalAmount = subtotal - discountAmount + taxAmount;
+
+  // Handle Wallet Payment
+  if (paymentMethod === "wallet") {
+    await updateWalletBalance(booking.userId, -finalAmount);
+  }
 
   const transactionId = `TRX-${Date.now()}`;
+  const exitPassExpiry = new Date(exitTime.getTime() + 15 * 60000); // 15 mins
 
   // Close Booking
   await updateDoc(doc(db, "bookings", booking.id), {
     exitTime,
     status: "completed",
-    fee
+    fee: finalAmount,
+    couponCode: couponCode || null,
+    exitPassValidUntil: exitPassExpiry
   });
 
-  // Create Transaction
+  // Create Transaction Record
   await setDoc(doc(db, "transactions", transactionId), {
     bookingId: booking.id,
-    amount: fee,
+    userId: booking.userId,
+    amount: finalAmount,
+    taxAmount,
+    discountAmount,
+    paymentMethod,
+    status: "success",
     timestamp: exitTime
   });
 
@@ -115,5 +174,11 @@ export const processExit = async (booking: Booking) => {
     lastUpdated: new Date()
   });
 
-  return { fee, transactionId };
+  return { 
+    fee: finalAmount, 
+    taxAmount, 
+    discountAmount, 
+    transactionId, 
+    exitPassValidUntil: exitPassExpiry 
+  };
 };
