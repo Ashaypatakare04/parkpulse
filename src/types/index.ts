@@ -43,3 +43,17 @@ export interface Transaction {
   status: "success" | "pending" | "failed";
   timestamp: any;
 }
+
+export interface LayoutLane {
+  id: string;
+  name: string;
+  slotIds: string[];
+  orientation: "horizontal" | "vertical";
+}
+
+export interface FacilityLayout {
+  id: string;
+  name: string;
+  lanes: LayoutLane[];
+  updatedAt: any;
+}

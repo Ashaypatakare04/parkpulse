@@ -1,6 +1,6 @@
 import { db } from "./config";
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, orderBy, limit, setDoc, updateDoc } from "firebase/firestore";
-import { Booking, ParkingSlot, Transaction } from "@/types";
+import { Booking, ParkingSlot, Transaction, FacilityLayout } from "@/types";
 
 export const listenToSlots = (callback: (slots: ParkingSlot[]) => void) => {
   const q = query(collection(db, "parkingSlots"), orderBy("slotNumber"));
@@ -181,4 +181,21 @@ export const processExit = async (
     transactionId, 
     exitPassValidUntil: exitPassExpiry 
   };
+};
+
+export const listenToLayout = (callback: (layout: FacilityLayout | null) => void) => {
+  return onSnapshot(doc(db, "settings", "layout"), (snapshot) => {
+    if (snapshot.exists()) {
+      callback({ id: snapshot.id, ...snapshot.data() } as FacilityLayout);
+    } else {
+      callback(null);
+    }
+  });
+};
+
+export const saveFacilityLayout = async (layout: Omit<FacilityLayout, "id">) => {
+  await setDoc(doc(db, "settings", "layout"), {
+    ...layout,
+    updatedAt: new Date()
+  });
 };

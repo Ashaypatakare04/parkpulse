@@ -66,13 +66,29 @@
 
 /* Custom Gradients & Storytelling elements */
 .glass {
-  @apply bg-background/60 backdrop-blur-md border border-border;
+  @apply bg-background/60 backdrop-blur-lg border border-border/50 transition-all duration-300;
 }
 
 .glass-premium {
-  @apply bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  @apply bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] transition-all duration-500;
 }
 
 .dark .glass-premium {
   @apply bg-black/40 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)];
+}
+
+.neon-blue {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+
+.neon-purple {
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+}
+
+.neon-green {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+}
+
+.glow-text {
+  text-shadow: 0 0 10px currentColor;
 }
